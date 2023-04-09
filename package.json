@@ -1,0 +1,17 @@
+{
+    "name": "figma-deepL-auto-translater-plugin",
+    "version": "1.0.0",
+    "description": "Figma DeelL auto translater plugin",
+    "author": "",
+    "main": "code.js",
+    "scripts": {
+        "build": "tsc -p tsconfig.json",
+        "watch": "npm run build -- --watch"
+    },
+    "license": "",
+    "devDependencies": {
+        "@figma/plugin-typings": "*",
+        "typescript": "*"
+    },
+    "dependencies": {}
+}
