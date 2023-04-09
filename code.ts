@@ -46,8 +46,36 @@ const showErrorMessage = (message: string) => {
     figma.notify(message, { error: true });
 };
 
+let textLayerCnt = 0;
+
+const traverseNode = async (node: SceneNode, messageData: any) => {
+    if (node.visible && "children" in node) {
+        for (const childNode of node.children) {
+            traverseNode(childNode, messageData);
+        }
+    }
+
+    if (node.type === "TEXT") {
+        textLayerCnt++;
+        const originalText = node.characters.trim();
+        const translatedText = await fetchTranslation(
+            originalText,
+            messageData.target
+        );
+        if (translatedText) {
+            await loadFonts(node.fontName as FontName);
+            if (messageData.isReplace) {
+                node.characters = translatedText;
+            } else {
+                appendSuggestText(node, translatedText, messageData.target);
+            }
+        }
+    }
+};
+
 const translateHandler = async (messageData: any) => {
     const selectedLayers = figma.currentPage.selection;
+
     if (selectedLayers.length === 0) {
         showErrorMessage(
             "선택된 텍스트 레이어가 없습니다. 번역할 텍스트 레이어를 선택하세요."
@@ -55,24 +83,15 @@ const translateHandler = async (messageData: any) => {
         return;
     }
 
-    for (const layer of selectedLayers) {
-        if (layer.type === "TEXT") {
-            const originalText = layer.characters.trim();
-            const translatedText = await fetchTranslation(
-                originalText,
-                messageData.target
-            );
+    for (const selectedLayer of selectedLayers) {
+        traverseNode(selectedLayer, messageData);
+    }
 
-            if (translatedText) {
-                await loadFonts(layer.fontName as FontName);
-
-                if (messageData.isReplace) {
-                    layer.characters = translatedText;
-                } else {
-                    appendSuggestText(layer, translatedText);
-                }
-            }
-        }
+    if (textLayerCnt === 0) {
+        showErrorMessage(
+            "선택된 텍스트 레이어가 없습니다. 번역할 텍스트 레이어를 선택하세요."
+        );
+        return;
     }
 };
 
@@ -118,27 +137,38 @@ const loadFonts = async (fontName: FontName) => {
     await figma.loadFontAsync({ family: fontName.family, style: "Bold" });
 };
 
-const appendSuggestText = (textLayer: TextNode, translatedText: string) => {
-    if (textLayer.parent) {
-        const frame = figma.createFrame();
-        const translatedSuggestText = figma.createText();
+const appendSuggestText = (
+    textLayer: TextNode,
+    translatedText: string,
+    target: string
+) => {
+    const frame = figma.createFrame();
+    const translatedSuggestText = figma.createText();
 
-        frame.name = `en_${textLayer.characters}`;
-        frame.layoutMode = "VERTICAL";
-        frame.counterAxisSizingMode = "AUTO";
-        frame.opacity = 0.6;
+    frame.name = `${target}_${textLayer.name}(${textLayer.characters})`;
+    frame.layoutMode = "VERTICAL";
+    frame.counterAxisSizingMode = "AUTO";
+    frame.opacity = 0.8;
+    frame.verticalPadding = 10;
+    frame.horizontalPadding = 10;
+    frame.strokes = [{ type: "SOLID", color: { r: 0, g: 0, b: 0 } }];
 
-        frame.strokes = [{ type: "SOLID", color: { r: 0, g: 0, b: 0 } }];
+    translatedSuggestText.fontName = textLayer.fontName;
+    translatedSuggestText.characters = translatedText;
 
-        frame.x = textLayer.x;
-        frame.y = textLayer.y + 50;
+    frame.appendChild(translatedSuggestText);
 
-        translatedSuggestText.fontName = textLayer.fontName;
-        translatedSuggestText.characters = translatedText;
-
-        frame.appendChild(translatedSuggestText);
-        textLayer.parent.appendChild(frame);
+    if (frame.width > 500) {
+        frame.counterAxisSizingMode = "FIXED";
+        frame.resizeWithoutConstraints(500, frame.height);
+        translatedSuggestText.resizeWithoutConstraints(
+            frame.width - 20,
+            translatedSuggestText.height
+        );
     }
+
+    frame.x = textLayer.absoluteTransform[0][2] - frame.width - 100;
+    frame.y = textLayer.absoluteTransform[1][2];
 };
 
 init();
