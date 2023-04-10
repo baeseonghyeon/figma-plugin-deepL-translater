@@ -4,6 +4,10 @@ enum messageType {
     showFigmaErrorNotify = "showFigmaErrorNotify",
 }
 
+let API_KEY: string;
+let API_HOST: string = "deepl-translator.p.rapidapi.com";
+let hasNotTextLayer: boolean = true;
+
 figma.showUI(__html__, {
     width: 380,
     height: 492,
@@ -11,7 +15,7 @@ figma.showUI(__html__, {
 
 const init = async () => {
     try {
-        const API_KEY = (await figma.clientStorage.getAsync("API_KEY")) ?? "";
+        API_KEY = (await figma.clientStorage.getAsync("API_KEY")) ?? "";
         figma.ui.postMessage({ type: "send-apiKey", payload: API_KEY });
     } catch (err) {
         console.log(err);
@@ -46,8 +50,6 @@ const showErrorMessage = (message: string) => {
     figma.notify(message, { error: true });
 };
 
-let textLayerCnt = 0;
-
 const traverseNode = async (node: SceneNode, messageData: any) => {
     if ("children" in node && node.visible) {
         for (const childNode of node.children) {
@@ -56,19 +58,23 @@ const traverseNode = async (node: SceneNode, messageData: any) => {
     }
 
     if (node.type === "TEXT" && node.visible) {
-        textLayerCnt++;
+        await loadFonts(node.fontName as FontName);
         const originalText = node.characters.split("\n").join("");
         const translatedText = await fetchTranslation(
             originalText,
             messageData.target
         );
+
         if (translatedText) {
-            await loadFonts(node.fontName as FontName);
             if (messageData.isReplace) {
                 node.characters = translatedText;
             } else {
                 appendSuggestText(node, translatedText, messageData.target);
             }
+        }
+
+        if (hasNotTextLayer) {
+            hasNotTextLayer = false;
         }
     }
 };
@@ -87,7 +93,7 @@ const translateHandler = async (messageData: any) => {
         traverseNode(selectedLayer, messageData);
     }
 
-    if (textLayerCnt === 0) {
+    if (hasNotTextLayer) {
         showErrorMessage(
             "선택된 텍스트 레이어가 없습니다. 번역할 텍스트 레이어를 선택하세요."
         );
@@ -101,19 +107,14 @@ const fetchTranslation = async (
     target: string = "en"
 ): Promise<string | undefined> => {
     try {
-        // Rapid DeepL API authentication key
-        const RapidAPI_HOST = "deepl-translator.p.rapidapi.com";
-        const RapidAPI_KEY =
-            (await figma.clientStorage.getAsync("API_KEY")) ?? "";
-
         const response = await fetch(
             `https://deepl-translator.p.rapidapi.com/translate`,
             {
                 method: "POST",
                 headers: {
                     "content-type": "application/json",
-                    "X-RapidAPI-Key": RapidAPI_KEY,
-                    "X-RapidAPI-Host": RapidAPI_HOST,
+                    "X-RapidAPI-Key": API_KEY,
+                    "X-RapidAPI-Host": API_HOST,
                 },
                 body: `{"text":"${text}","source":"auto","target":"${target}"}`,
             }
@@ -133,8 +134,8 @@ const fetchTranslation = async (
 
 const loadFonts = async (fontName: FontName) => {
     await figma.loadFontAsync({ family: fontName.family, style: "Regular" });
-    await figma.loadFontAsync({ family: fontName.family, style: "Medium" });
-    await figma.loadFontAsync({ family: fontName.family, style: "Bold" });
+    // await figma.loadFontAsync({ family: fontName.family, style: "Medium" });
+    // await figma.loadFontAsync({ family: fontName.family, style: "Bold" });
 };
 
 const appendSuggestText = (
