@@ -49,15 +49,15 @@ const showErrorMessage = (message: string) => {
 let textLayerCnt = 0;
 
 const traverseNode = async (node: SceneNode, messageData: any) => {
-    if (node.visible && "children" in node) {
+    if ("children" in node && node.visible) {
         for (const childNode of node.children) {
             traverseNode(childNode, messageData);
         }
     }
 
-    if (node.type === "TEXT") {
+    if (node.type === "TEXT" && node.visible) {
         textLayerCnt++;
-        const originalText = node.characters.trim();
+        const originalText = node.characters.split("\n").join("");
         const translatedText = await fetchTranslation(
             originalText,
             messageData.target
