@@ -60,6 +60,7 @@ const traverseNode = async (node: SceneNode, messageData: any) => {
     if (node.type === "TEXT" && node.visible) {
         await loadFonts(node.fontName as FontName);
         const originalText = node.characters.split("\n").join("");
+
         const translatedText = await fetchTranslation(
             originalText,
             messageData.target
@@ -82,15 +83,8 @@ const traverseNode = async (node: SceneNode, messageData: any) => {
 const translateHandler = async (messageData: any) => {
     const selectedLayers = figma.currentPage.selection;
 
-    if (selectedLayers.length === 0) {
-        showErrorMessage(
-            "선택된 텍스트 레이어가 없습니다. 번역할 텍스트 레이어를 선택하세요."
-        );
-        return;
-    }
-
     for (const selectedLayer of selectedLayers) {
-        traverseNode(selectedLayer, messageData);
+        await traverseNode(selectedLayer, messageData);
     }
 
     if (hasNotTextLayer) {
@@ -122,7 +116,6 @@ const fetchTranslation = async (
 
         if (response.ok === true) {
             const result = await response.json();
-            console.log(result);
             return result.text;
         } else {
             throw new Error(`${response.status} ${response.statusText}`);
@@ -134,8 +127,8 @@ const fetchTranslation = async (
 
 const loadFonts = async (fontName: FontName) => {
     await figma.loadFontAsync({ family: fontName.family, style: "Regular" });
-    // await figma.loadFontAsync({ family: fontName.family, style: "Medium" });
-    // await figma.loadFontAsync({ family: fontName.family, style: "Bold" });
+    await figma.loadFontAsync({ family: fontName.family, style: "Medium" });
+    await figma.loadFontAsync({ family: fontName.family, style: "Bold" });
 };
 
 const appendSuggestText = (
