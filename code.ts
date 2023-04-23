@@ -38,8 +38,8 @@ figma.ui.onmessage = async (msg) => {
 
 const setApiKey = async (apiKey: string) => {
     try {
-        figma.notify("API KEY가 저장되었습니다.");
         await figma.clientStorage.setAsync("API_KEY", apiKey);
+        figma.notify("API KEY가 저장되었습니다.");
     } catch (err) {
         console.log(err);
         showErrorMessage("API KEY 저장에 문제가 있습니다.");
@@ -85,6 +85,7 @@ const translateHandler = async (messageData: any) => {
 
     for (const selectedLayer of selectedLayers) {
         await traverseNode(selectedLayer, messageData);
+        await sleep(50);
     }
 
     if (hasNotTextLayer) {
@@ -125,10 +126,15 @@ const fetchTranslation = async (
     }
 };
 
+const sleep = (milliseconds: number) => {
+    return new Promise((resolve) => setTimeout(resolve, milliseconds));
+};
+
 const loadFonts = async (fontName: FontName) => {
-    await figma.loadFontAsync({ family: fontName.family, style: "Regular" });
-    await figma.loadFontAsync({ family: fontName.family, style: "Medium" });
-    await figma.loadFontAsync({ family: fontName.family, style: "Bold" });
+    await figma.loadFontAsync({
+        family: fontName.family,
+        style: fontName.style,
+    });
 };
 
 const appendSuggestText = (
